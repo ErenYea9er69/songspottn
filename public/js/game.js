@@ -1,6 +1,7 @@
-// Main Game Engine for SongSpot
+// Main Game Engine for SongSpot — 2026 Edition
 import { audioManager } from './audioManager.js';
 import { Autocomplete } from './autocomplete.js';
+import { Confetti } from './confetti.js';
 
 class SongSpotGame {
   constructor() {
@@ -18,16 +19,31 @@ class SongSpotGame {
     this.guesses = [];
     this.selectedTrack = null;
 
+    // Spectrum Animation
+    this.spectrumIntervalId = null;
+
     // DOM Elements
-    this.genreSelectEl = document.getElementById('genre-select');
+    this.confettiCanvas = document.getElementById('confetti-canvas');
+    this.confetti = new Confetti(this.confettiCanvas);
+
+    this.genrePillsContainer = document.getElementById('genre-pills');
     this.newGameBtn = document.getElementById('new-game-btn');
+    this.sfxToggleBtn = document.getElementById('sfx-toggle-btn');
+    this.sfxIconOn = document.getElementById('sfx-icon-on');
+    this.sfxIconOff = document.getElementById('sfx-icon-off');
+
     this.scoreValueEl = document.getElementById('score-value');
     this.roundIndicatorContainer = document.getElementById('round-indicators');
     this.timelineSegmentsEl = document.getElementById('timeline-segments');
+
+    this.turntableVinyl = document.getElementById('turntable-vinyl');
+    this.turntableTonearm = document.getElementById('turntable-tonearm');
+    this.spectrumBars = document.querySelectorAll('.spectrum-bar .bar-level');
+
     this.playBtn = document.getElementById('play-btn');
     this.playBtnLabel = document.getElementById('play-btn-label');
     this.playBtnIcon = document.getElementById('play-btn-icon');
-    this.waveformEl = document.getElementById('waveform-anim');
+
     this.searchInputEl = document.getElementById('search-input');
     this.dropdownEl = document.getElementById('autocomplete-dropdown');
     this.submitGuessBtn = document.getElementById('submit-guess-btn');
@@ -54,10 +70,9 @@ class SongSpotGame {
     this.init();
   }
 
-  async init() {
+  init() {
     this.initAutocomplete();
     this.initEventListeners();
-    await this.loadGenres();
     this.startNewGame();
   }
 
@@ -68,7 +83,6 @@ class SongSpotGame {
       onSelect: (track) => {
         this.selectedTrack = track;
         this.submitGuessBtn.disabled = false;
-        // If track is selected from dropdown, focus the submit button or submit directly
         this.submitGuess();
       }
     });
@@ -90,18 +104,35 @@ class SongSpotGame {
       this.submitGuessBtn.disabled = e.target.value.trim().length === 0;
     });
 
-    // Genre selector change
-    this.genreSelectEl.addEventListener('change', (e) => {
-      this.currentGenre = e.target.value;
-      this.startNewGame();
+    // Sound FX Toggle
+    this.sfxToggleBtn.addEventListener('click', () => {
+      const isMuted = audioManager.toggleMute();
+      this.sfxIconOn.style.display = isMuted ? 'none' : 'block';
+      this.sfxIconOff.style.display = isMuted ? 'block' : 'none';
+      if (!isMuted) audioManager.playSfx('skip');
     });
 
-    // Header new game button
+    // Header restart button
     this.newGameBtn.addEventListener('click', () => {
+      audioManager.playSfx('skip');
       this.startNewGame();
     });
 
-    // Round modal controls
+    // Genre pill shelf click events
+    this.genrePillsContainer.addEventListener('click', (e) => {
+      const pill = e.target.closest('.genre-pill');
+      if (!pill) return;
+      const genre = pill.dataset.genre;
+      if (genre === this.currentGenre) return;
+
+      this.genrePillsContainer.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('is-active'));
+      pill.classList.add('is-active');
+      this.currentGenre = genre;
+      audioManager.playSfx('skip');
+      this.startNewGame();
+    });
+
+    // Round modal full preview button
     this.roundPlayFullBtn.addEventListener('click', () => {
       if (audioManager.isPlaying) {
         audioManager.stop();
@@ -129,6 +160,7 @@ class SongSpotGame {
       }
     });
 
+    // Round modal advance button
     this.roundNextBtn.addEventListener('click', () => this.advanceNextRound());
 
     // Game Over modal play again
@@ -137,34 +169,13 @@ class SongSpotGame {
       this.startNewGame();
     });
 
-    // Spacebar to play/pause clip
+    // Keyboard shortcut: Spacebar to play/pause clip
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && document.activeElement !== this.searchInputEl) {
         e.preventDefault();
         this.togglePlayback();
       }
     });
-  }
-
-  async loadGenres() {
-    try {
-      const res = await fetch('/api/genres');
-      if (!res.ok) return;
-      const data = await res.json();
-      const genres = data.genres || [];
-
-      this.genreSelectEl.innerHTML = '';
-      genres.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = g.name;
-        this.genreSelectEl.appendChild(opt);
-      });
-
-      this.genreSelectEl.value = this.currentGenre;
-    } catch (err) {
-      console.warn('Failed to load genres:', err);
-    }
   }
 
   async startNewGame() {
@@ -204,7 +215,6 @@ class SongSpotGame {
       this.updateControls();
     } catch (err) {
       console.error('New game error:', err);
-      alert('Could not start game. Please check connection and try again.');
     } finally {
       this.setControlsLoading(false);
     }
@@ -217,6 +227,7 @@ class SongSpotGame {
     } else {
       if (!this.previewUrl) return;
 
+      audioManager.playSfx('needle');
       audioManager.playClip(
         this.previewUrl,
         this.clipDuration,
@@ -231,26 +242,62 @@ class SongSpotGame {
     if (isPlaying) {
       this.playBtn.classList.add('is-playing');
       this.playBtnIcon.innerHTML = `
-        <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
-        <rect x="14" y="4" width="4" height="16" fill="currentColor"/>
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"/>
+          <rect x="14" y="4" width="4" height="16"/>
+        </svg>
       `;
       this.playBtnLabel.textContent = `Playing (${this.clipDuration}s)`;
-      this.waveformEl.classList.add('is-active');
+
+      // Animate Turntable
+      this.turntableVinyl.classList.add('is-spinning');
+      this.turntableTonearm.classList.add('is-docked');
+
+      // Animate Spectrum
+      this.startSpectrumAnimation();
     } else {
       this.playBtn.classList.remove('is-playing');
       this.playBtnIcon.innerHTML = `
-        <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
+          <polygon points="6 3 20 12 6 21 6 3"/>
+        </svg>
       `;
       this.playBtnLabel.textContent = `Play (${this.clipDuration}s)`;
-      this.waveformEl.classList.remove('is-active');
+
+      // Stop Turntable
+      this.turntableVinyl.classList.remove('is-spinning');
+      this.turntableTonearm.classList.remove('is-docked');
+
+      // Reset Spectrum
+      this.stopSpectrumAnimation();
       this.resetTimelineProgress();
     }
   }
 
+  startSpectrumAnimation() {
+    this.stopSpectrumAnimation();
+    this.spectrumIntervalId = setInterval(() => {
+      this.spectrumBars.forEach((bar) => {
+        const height = Math.floor(Math.random() * 85) + 12;
+        bar.style.height = `${height}%`;
+      });
+    }, 80);
+  }
+
+  stopSpectrumAnimation() {
+    if (this.spectrumIntervalId) {
+      clearInterval(this.spectrumIntervalId);
+      this.spectrumIntervalId = null;
+    }
+    this.spectrumBars.forEach((bar) => {
+      bar.style.height = '8%';
+    });
+  }
+
   updatePlaybackProgress(progress) {
-    const activeSeg = this.timelineSegmentsEl.querySelector(`.segment[data-index="${this.attemptIndex}"]`);
+    const activeSeg = this.timelineSegmentsEl.querySelector(`.channel-cell[data-index="${this.attemptIndex}"]`);
     if (activeSeg) {
-      const fillEl = activeSeg.querySelector('.segment-fill');
+      const fillEl = activeSeg.querySelector('.channel-fill');
       if (fillEl) {
         fillEl.style.width = `${progress * 100}%`;
       }
@@ -258,7 +305,7 @@ class SongSpotGame {
   }
 
   resetTimelineProgress() {
-    const fills = this.timelineSegmentsEl.querySelectorAll('.segment-fill');
+    const fills = this.timelineSegmentsEl.querySelectorAll('.channel-fill');
     fills.forEach(f => f.style.width = '0%');
   }
 
@@ -287,6 +334,8 @@ class SongSpotGame {
 
       if (data.correct) {
         audioManager.playSfx('correct');
+        this.confetti.burst();
+
         this.guesses.push({
           text: `${data.track.title} - ${data.track.artist}`,
           status: 'correct',
@@ -312,7 +361,6 @@ class SongSpotGame {
         this.autocomplete.clear();
 
         if (data.roundOver) {
-          // Out of attempts
           this.totalScore = data.totalScore;
           this.roundScores[this.roundIndex] = 0;
           this.roundWon[this.roundIndex] = false;
@@ -321,7 +369,6 @@ class SongSpotGame {
           this.renderRoundIndicators();
           this.showRoundReveal(false, 0, data.track);
         } else {
-          // Advance to next duration
           this.attemptIndex = data.nextAttemptIndex;
           this.clipDuration = data.nextDuration;
           this.renderTimeline();
@@ -351,14 +398,13 @@ class SongSpotGame {
       const data = await res.json();
 
       this.guesses.push({
-        text: 'Skipped attempt',
+        text: 'Skipped snippet',
         status: 'skipped',
         duration: `${this.clipDuration}s`
       });
       this.renderGuesses();
 
       if (data.roundOver) {
-        // Round exhausted
         this.totalScore = data.totalScore;
         this.roundScores[this.roundIndex] = 0;
         this.roundWon[this.roundIndex] = false;
@@ -381,10 +427,10 @@ class SongSpotGame {
 
   showRoundReveal(isWon, scoreEarned, track) {
     this.roundResultTitle.textContent = isWon ? 'SPOT ON!' : 'MISSED TRACK';
-    this.roundResultTitle.className = isWon ? 'result-won' : 'result-lost';
+    this.roundResultTitle.className = isWon ? 'status-won' : 'status-lost';
 
     this.roundScoreBadge.textContent = isWon ? `+${scoreEarned} PTS` : '+0 PTS';
-    this.roundScoreBadge.className = isWon ? 'score-won' : 'score-lost';
+    this.roundScoreBadge.className = isWon ? 'score-pill score-won' : 'score-pill score-lost';
 
     this.roundCoverImg.src = track.cover || '';
     this.roundTrackTitle.textContent = track.title;
@@ -435,12 +481,12 @@ class SongSpotGame {
   showGameOver(data) {
     this.finalScoreEl.textContent = `${data.totalScore} / 5000`;
 
-    // Dynamic Rank Badges
     let rank = 'Radio Rookie';
     let rankClass = 'rank-bronze';
     if (data.totalScore >= 4500) {
       rank = 'Audiophile Maestro 🏆';
       rankClass = 'rank-gold';
+      this.confetti.burst();
     } else if (data.totalScore >= 3500) {
       rank = 'Vinyl Virtuoso ⭐';
       rankClass = 'rank-gold';
@@ -453,9 +499,8 @@ class SongSpotGame {
     }
 
     this.finalRankBadgeEl.textContent = rank;
-    this.finalRankBadgeEl.className = `rank-badge ${rankClass}`;
+    this.finalRankBadgeEl.className = `rank-trophy-badge ${rankClass}`;
 
-    // Recap list
     this.finalRecapListEl.innerHTML = '';
     data.tracks.forEach((track, idx) => {
       const item = document.createElement('div');
@@ -486,24 +531,24 @@ class SongSpotGame {
     this.timelineSegmentsEl.innerHTML = '';
 
     this.clipLengths.forEach((duration, index) => {
-      const seg = document.createElement('div');
-      seg.className = 'segment';
-      seg.dataset.index = index;
+      const cell = document.createElement('div');
+      cell.className = 'channel-cell';
+      cell.dataset.index = index;
 
       if (index < this.attemptIndex) {
-        seg.classList.add('is-spent');
+        cell.classList.add('is-spent');
       } else if (index === this.attemptIndex) {
-        seg.classList.add('is-active');
+        cell.classList.add('is-active');
       } else {
-        seg.classList.add('is-locked');
+        cell.classList.add('is-locked');
       }
 
-      seg.innerHTML = `
-        <div class="segment-fill"></div>
-        <span class="segment-label">${duration}s</span>
+      cell.innerHTML = `
+        <div class="channel-fill"></div>
+        <span class="channel-tag">${duration}s</span>
       `;
 
-      this.timelineSegmentsEl.appendChild(seg);
+      this.timelineSegmentsEl.appendChild(cell);
     });
   }
 
@@ -511,50 +556,51 @@ class SongSpotGame {
     this.roundIndicatorContainer.innerHTML = '';
 
     for (let i = 0; i < this.totalRounds; i++) {
-      const pill = document.createElement('div');
-      pill.className = 'round-pill';
+      const cell = document.createElement('div');
+      cell.className = 'round-cell';
 
       if (i < this.roundIndex) {
-        pill.classList.add(this.roundWon[i] ? 'is-won' : 'is-lost');
-        pill.textContent = this.roundWon[i] ? `R${i + 1} ✓` : `R${i + 1} ✕`;
+        cell.classList.add(this.roundWon[i] ? 'is-won' : 'is-lost');
+        cell.textContent = this.roundWon[i] ? '✓' : '✕';
       } else if (i === this.roundIndex) {
-        pill.classList.add('is-current');
-        pill.textContent = `Round ${i + 1}`;
+        cell.classList.add('is-current');
+        cell.textContent = `${i + 1}`;
       } else {
-        pill.classList.add('is-upcoming');
-        pill.textContent = `R${i + 1}`;
+        cell.classList.add('is-upcoming');
+        cell.textContent = `${i + 1}`;
       }
 
-      this.roundIndicatorContainer.appendChild(pill);
+      this.roundIndicatorContainer.appendChild(cell);
     }
   }
 
   renderGuesses() {
     this.guessHistoryEl.innerHTML = '';
     if (this.guesses.length === 0) {
-      this.guessHistoryEl.classList.add('is-empty');
       this.guessHistoryEl.innerHTML = `
-        <div class="guess-placeholder">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
-          Listen to the clip and type your guess below
+        <div class="feed-empty-hint">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>Play the clip and search for the track name</span>
         </div>
       `;
       return;
     }
 
-    this.guessHistoryEl.classList.remove('is-empty');
-    this.guesses.forEach((g, idx) => {
+    this.guesses.forEach((g) => {
       const row = document.createElement('div');
-      row.className = `guess-row is-${g.status}`;
+      row.className = `feed-entry is-${g.status}`;
 
       let icon = '✕';
       if (g.status === 'correct') icon = '✓';
       if (g.status === 'skipped') icon = '↷';
 
       row.innerHTML = `
-        <span class="guess-badge">${icon}</span>
-        <span class="guess-text">${g.text}</span>
-        <span class="guess-duration">${g.duration}</span>
+        <span class="feed-badge">${icon}</span>
+        <span class="feed-text">${g.text}</span>
+        <span class="feed-duration">${g.duration}</span>
       `;
       this.guessHistoryEl.appendChild(row);
     });
@@ -591,7 +637,6 @@ class SongSpotGame {
   }
 }
 
-// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   new SongSpotGame();
 });

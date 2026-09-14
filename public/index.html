@@ -3,43 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SongSpot - Name the Track Before the Clip Grows</title>
-  <meta name="description" content="Test your musical ear with SongSpot. Guess the mystery song from a tiny 0.1-second clip before progressive hints unlock longer audio. Powered by Deezer." />
+  <title>SongSpot — Guess the Track Before the Clip Expands</title>
+  <meta name="description" content="An immersive audio guessing game powered by Deezer. Hear a 0.1-second clip and guess the mystery song before longer hints unlock." />
   <link rel="stylesheet" href="/styles/main.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2338bdf8'><circle cx='12' cy='12' r='10'/><polygon points='10 8 16 12 10 16 10 8' fill='%2307090e'/></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><circle cx='12' cy='12' r='10'/><polygon points='10 8 16 12 10 16 10 8' fill='%23070709'/></svg>" />
 </head>
 <body>
+  <!-- Victory Confetti Canvas Overlay -->
+  <canvas id="confetti-canvas" class="confetti-overlay" aria-hidden="true"></canvas>
+
   <div class="app-container">
-    <!-- Header -->
+    <!-- Top Brand & Utilities Header -->
     <header class="app-header">
       <div class="brand-section">
-        <div class="brand-icon" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <circle cx="12" cy="12" r="3" fill="currentColor"/>
-            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+        <div class="brand-logo" aria-hidden="true">
+          <div class="logo-inner">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+              <circle cx="12" cy="12" r="3.5" fill="currentColor"/>
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="pulse-ring"></span>
         </div>
-        <h1 class="brand-title">SongSpot</h1>
-        <span class="brand-tag">Deezer Live</span>
+        <div class="brand-text">
+          <h1 class="brand-title">SongSpot</h1>
+          <span class="brand-subtitle">Live Audio Trivia</span>
+        </div>
       </div>
 
-      <div class="header-actions">
-        <div class="genre-picker">
-          <label for="genre-select" class="sr-only" style="display:none;">Select Genre</label>
-          <select id="genre-select" class="genre-select" title="Choose Music Category">
-            <option value="chart-0">Global Top Hits</option>
-            <option value="genre-132">Pop Anthems</option>
-            <option value="genre-152">Rock Legends</option>
-            <option value="genre-116">Hip-Hop & Rap</option>
-            <option value="genre-113">Dance & Electronic</option>
-            <option value="genre-165">R&B & Soul</option>
-            <option value="search-80s">80s & 90s Classics</option>
-            <option value="search-indie">Indie & Alternative</option>
-          </select>
-        </div>
+      <div class="header-tools">
+        <!-- Sound FX Toggle -->
+        <button id="sfx-toggle-btn" class="tool-btn" title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
+          <svg id="sfx-icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+          <svg id="sfx-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="23" y1="9" x2="17" y2="15"/>
+            <line x1="17" y1="9" x2="23" y2="15"/>
+          </svg>
+        </button>
 
-        <button id="new-game-btn" class="btn-icon" title="Restart Game" aria-label="Restart New Game">
+        <!-- New Game Button -->
+        <button id="new-game-btn" class="tool-btn" title="New Game" aria-label="Restart New Game">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
           </svg>
@@ -47,73 +55,127 @@
       </div>
     </header>
 
-    <!-- Score & Round HUD -->
-    <section class="hud-card" aria-label="Game Status">
-      <div class="score-block">
-        <span class="score-title">Current Score</span>
-        <div>
-          <span id="score-value" class="score-number">0</span>
-          <span class="score-unit">PTS</span>
+    <!-- Genre Pill Scroll Shelf -->
+    <nav class="genre-shelf" aria-label="Music Genres">
+      <div class="genre-pills" id="genre-pills">
+        <button class="genre-pill is-active" data-genre="chart-0"><span>🔥</span> Top Hits</button>
+        <button class="genre-pill" data-genre="genre-132"><span>⚡</span> Pop</button>
+        <button class="genre-pill" data-genre="genre-152"><span>🎸</span> Rock</button>
+        <button class="genre-pill" data-genre="genre-116"><span>🎤</span> Hip-Hop</button>
+        <button class="genre-pill" data-genre="genre-113"><span>🪩</span> Dance</button>
+        <button class="genre-pill" data-genre="genre-165"><span>🎷</span> R&B</button>
+        <button class="genre-pill" data-genre="search-80s"><span>📻</span> 80s/90s</button>
+        <button class="genre-pill" data-genre="search-indie"><span>🪐</span> Indie</button>
+      </div>
+    </nav>
+
+    <!-- HUD Bar (Score & Round Indicators) -->
+    <section class="game-hud" aria-label="Game Status">
+      <div class="hud-stat">
+        <span class="hud-label">Total Score</span>
+        <div class="hud-value-row">
+          <span id="score-value" class="hud-value">0</span>
+          <span class="hud-unit">PTS</span>
         </div>
       </div>
 
-      <div id="round-indicators" class="round-pills-container" aria-label="Round Indicators">
-        <!-- Injected via JavaScript -->
+      <div class="hud-divider" aria-hidden="true"></div>
+
+      <div class="hud-stat">
+        <span class="hud-label">Rounds (5)</span>
+        <div id="round-indicators" class="round-rack" aria-label="Rounds progression">
+          <!-- Injected via JS -->
+        </div>
       </div>
     </section>
 
-    <!-- Main Game Deck -->
-    <main>
-      <!-- Centerpiece Audio Deck -->
-      <section class="audio-deck" aria-label="Audio Playback Deck">
-        <!-- Animated Soundwave Bars -->
-        <div id="waveform-anim" class="waveform-bars" aria-hidden="true">
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
-          <span class="waveform-bar"></span>
+    <!-- Main Analog Deck -->
+    <main class="deck-surface">
+      <!-- Turntable & Equalizer Stage -->
+      <section class="turntable-stage" aria-label="Turntable Deck">
+        <!-- Vinyl Record Visualizer -->
+        <div class="turntable-assembly">
+          <div id="turntable-vinyl" class="vinyl-disc" aria-hidden="true">
+            <div class="vinyl-groove groove-1"></div>
+            <div class="vinyl-groove groove-2"></div>
+            <div class="vinyl-groove groove-3"></div>
+            <div class="vinyl-center-label">
+              <div class="label-dot"></div>
+              <span class="label-text">SONGSPOT</span>
+            </div>
+            <div class="vinyl-sheen"></div>
+          </div>
+
+          <!-- Tone Arm Stylus -->
+          <div id="turntable-tonearm" class="tonearm" aria-hidden="true">
+            <div class="arm-base"></div>
+            <div class="arm-rod"></div>
+            <div class="arm-cartridge"></div>
+          </div>
         </div>
 
-        <!-- Primary Play Button -->
-        <div class="play-control-wrapper">
-          <button id="play-btn" class="btn-play" aria-label="Play audio snippet" title="Listen to current clip duration">
-            <span id="play-btn-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-            </span>
+        <!-- 16-Band Dynamic Spectrum Visualizer -->
+        <div id="spectrum-bars" class="spectrum-rack" aria-hidden="true">
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+          <div class="spectrum-bar"><div class="bar-level"></div></div>
+        </div>
+
+        <!-- Primary Tactile Play Button -->
+        <div class="playback-control">
+          <button id="play-btn" class="btn-tactile-play" aria-label="Play audio clip" title="Listen to current clip duration">
+            <div class="play-inner-disc">
+              <span id="play-btn-icon" class="play-icon-wrap">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
+                  <polygon points="6 3 20 12 6 21 6 3"/>
+                </svg>
+              </span>
+            </div>
+            <div class="play-glow-ring"></div>
           </button>
-          <span id="play-btn-label" class="play-label">Play (0.1s)</span>
+          <div class="play-meta">
+            <span id="play-btn-label" class="play-stage-badge">Play (0.1s)</span>
+            <span class="play-hint">Press <kbd>Space</kbd></span>
+          </div>
         </div>
 
-        <!-- Segmented Clip Progression Timeline -->
-        <div class="timeline-deck">
-          <div id="timeline-segments" class="timeline-segments" aria-label="Clip Duration Progression">
+        <!-- LED Channel Timeline Segments -->
+        <div class="timeline-rack">
+          <div id="timeline-segments" class="timeline-channels" aria-label="Snippet duration progression">
             <!-- 5 segments rendered via JavaScript -->
           </div>
         </div>
 
-        <!-- Guesses History -->
-        <div id="guess-history" class="guess-history" aria-live="polite">
-          <div class="guess-placeholder">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Guesses Feed -->
+        <div id="guess-history" class="guess-feed" aria-live="polite">
+          <div class="feed-empty-hint">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
               <polyline points="12 6 12 12 16 14"/>
             </svg>
-            Listen to the clip and type your guess below
+            <span>Play the clip and search for the track name</span>
           </div>
         </div>
       </section>
 
-      <!-- Search & Input Deck -->
-      <section class="search-deck" aria-label="Song Guess Input">
-        <div class="search-bar-wrapper">
-          <span class="search-input-icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Search & Guessing Console -->
+      <section class="console-stage" aria-label="Search and Submit">
+        <div class="search-field-wrap">
+          <span class="search-prefix-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
@@ -121,29 +183,30 @@
           <input
             type="text"
             id="search-input"
-            class="search-input"
-            placeholder="Search song title or artist name..."
-            aria-label="Search song title or artist name"
+            class="console-input"
+            placeholder="Search song title or artist..."
+            aria-label="Search song title or artist"
+            spellcheck="false"
           />
         </div>
 
         <!-- Autocomplete Suggestions Dropdown -->
-        <div id="autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Song suggestions">
+        <div id="autocomplete-dropdown" class="autocomplete-popover" role="listbox" aria-label="Song search results">
           <!-- Injected via JavaScript -->
         </div>
 
-        <!-- Action Buttons -->
-        <div class="action-controls">
-          <button id="skip-btn" class="btn-action btn-skip" aria-label="Skip to next clip length">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Dual Action Buttons -->
+        <div class="console-actions">
+          <button id="skip-btn" class="btn-console btn-console-skip" aria-label="Skip to next duration">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="5 4 15 12 5 20 5 4"/>
               <line x1="19" y1="5" x2="19" y2="19"/>
             </svg>
             <span id="skip-btn-label">Skip (+0.4s to 0.5s)</span>
           </button>
 
-          <button id="submit-guess-btn" class="btn-action btn-guess" disabled aria-label="Submit Guess">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="submit-guess-btn" class="btn-console btn-console-submit" disabled aria-label="Submit Guess">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
             <span>Submit Guess</span>
@@ -152,58 +215,64 @@
       </section>
     </main>
 
-    <!-- Footer Instructions & Accessibility -->
+    <!-- Minimal Keyboard Footer -->
     <footer class="app-footer">
-      <span class="kbd-hint"><kbd>Space</kbd> Play / Pause</span>
-      <span class="kbd-hint"><kbd>Enter</kbd> Submit Guess</span>
+      <span><kbd>Space</kbd> Play / Pause</span>
+      <span>•</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> Browse suggestions</span>
+      <span>•</span>
+      <span><kbd>Enter</kbd> Guess</span>
     </footer>
   </div>
 
   <!-- Round Reveal Modal -->
-  <div id="round-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="round-result-title">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="round-result-title" class="result-won">SPOT ON!</h2>
-        <span id="round-score-badge" class="modal-score-badge score-won">+1000 PTS</span>
+  <div id="round-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="round-result-title">
+    <div class="modal-panel">
+      <div class="modal-status-pill">
+        <h2 id="round-result-title" class="status-won">SPOT ON!</h2>
+        <span id="round-score-badge" class="score-pill score-won">+1000 PTS</span>
       </div>
 
-      <img id="round-cover-img" class="modal-cover" src="" alt="Album Artwork" />
-
-      <div class="modal-song-info">
-        <h3 id="round-track-title" class="modal-track-title">Song Title</h3>
-        <p id="round-artist-name" class="modal-artist-name">Artist Name</p>
+      <div class="album-art-stage">
+        <img id="round-cover-img" class="album-art-img" src="" alt="Album Artwork" />
+        <div class="art-reflection"></div>
       </div>
 
-      <div class="modal-actions">
-        <button id="round-play-full-btn" class="btn-modal-preview">
+      <div class="track-reveal-info">
+        <h3 id="round-track-title" class="track-title-text">Song Title</h3>
+        <p id="round-artist-name" class="artist-name-text">Artist Name</p>
+      </div>
+
+      <div class="modal-button-group">
+        <button id="round-play-full-btn" class="btn-modal btn-modal-preview">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
           Listen to Full Preview (30s)
         </button>
-        <button id="round-next-btn" class="btn-modal-primary">Next Round →</button>
+        <button id="round-next-btn" class="btn-modal btn-modal-advance">Next Round →</button>
       </div>
     </div>
   </div>
 
   <!-- Game Over Summary Modal -->
-  <div id="game-over-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
-    <div class="modal-card">
-      <div class="modal-header game-over-header">
-        <h2 id="game-over-title">Game Complete!</h2>
-        <div id="final-score" class="final-score-callout">0 / 5000</div>
-        <div id="final-rank-badge" class="rank-badge rank-gold">Audiophile Maestro 🏆</div>
+  <div id="game-over-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
+    <div class="modal-panel game-over-panel">
+      <div class="game-over-headline">
+        <h2 id="game-over-title">Game Finished</h2>
+        <div id="final-score" class="score-spotlight">0 / 5000</div>
+        <div id="final-rank-badge" class="rank-trophy-badge rank-gold">Audiophile Maestro 🏆</div>
       </div>
 
-      <div id="final-recap-list" class="final-recap-list" aria-label="Round by round results">
+      <div id="final-recap-list" class="recap-cards-list" aria-label="Round results breakdown">
         <!-- Injected via JavaScript -->
       </div>
 
-      <button id="play-again-btn" class="btn-modal-primary" style="width:100%;">Play Another Game ↺</button>
+      <button id="play-again-btn" class="btn-modal btn-modal-advance" style="width:100%;">Play Another Game ↺</button>
     </div>
   </div>
 
-  <!-- Game Script -->
+  <!-- Main Application Script -->
   <script type="module" src="/js/game.js"></script>
 </body>
 </html>
