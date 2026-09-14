@@ -1,0 +1,17 @@
+{
+  "name": "songspot",
+  "version": "1.0.0",
+  "description": "A high-speed audio guessing web game powered by the Deezer API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0"
+  }
+}
