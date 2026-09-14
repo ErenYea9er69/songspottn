@@ -6,7 +6,7 @@ import { Confetti } from './confetti.js';
 class SongSpotGame {
   constructor() {
     this.gameId = null;
-    this.currentGenre = 'chart-0';
+    this.currentGenre = 'rap-all';
     this.roundIndex = 0;
     this.totalRounds = 5;
     this.attemptIndex = 0;

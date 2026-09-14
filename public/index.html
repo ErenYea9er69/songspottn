@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SongSpot — Guess the Track Before the Clip Expands</title>
-  <meta name="description" content="An immersive audio guessing game powered by Deezer. Hear a 0.1-second clip and guess the mystery song before longer hints unlock." />
+  <title>SongSpot TN — Guess the Tunisian Track (Rap & Musique)</title>
+  <meta name="description" content="Test your ear with SongSpot TN. Guess the mystery Tunisian rap or classic song from a 0.1s snippet before hints unlock." />
   <link rel="stylesheet" href="/styles/main.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><circle cx='12' cy='12' r='10'/><polygon points='10 8 16 12 10 16 10 8' fill='%23070709'/></svg>" />
 </head>
@@ -27,8 +27,8 @@
           <span class="pulse-ring"></span>
         </div>
         <div class="brand-text">
-          <h1 class="brand-title">SongSpot</h1>
-          <span class="brand-subtitle">Live Audio Trivia</span>
+          <h1 class="brand-title">SongSpot TN</h1>
+          <span class="brand-subtitle">Rap & Musique Tunisienne 🇹🇳</span>
         </div>
       </div>
 
@@ -58,14 +58,12 @@
     <!-- Genre Pill Scroll Shelf -->
     <nav class="genre-shelf" aria-label="Music Genres">
       <div class="genre-pills" id="genre-pills">
-        <button class="genre-pill is-active" data-genre="chart-0"><span>🔥</span> Top Hits</button>
-        <button class="genre-pill" data-genre="genre-132"><span>⚡</span> Pop</button>
-        <button class="genre-pill" data-genre="genre-152"><span>🎸</span> Rock</button>
-        <button class="genre-pill" data-genre="genre-116"><span>🎤</span> Hip-Hop</button>
-        <button class="genre-pill" data-genre="genre-113"><span>🪩</span> Dance</button>
-        <button class="genre-pill" data-genre="genre-165"><span>🎷</span> R&B</button>
-        <button class="genre-pill" data-genre="search-80s"><span>📻</span> 80s/90s</button>
-        <button class="genre-pill" data-genre="search-indie"><span>🪐</span> Indie</button>
+        <button class="genre-pill is-active" data-genre="rap-all"><span>🎤</span> Rap TN Top Hits</button>
+        <button class="genre-pill" data-genre="rap-drill"><span>⚡</span> Samara & Sanfara</button>
+        <button class="genre-pill" data-genre="rap-legends"><span>👑</span> Balti & Kafon</button>
+        <button class="genre-pill" data-genre="mezwed-tounsi"><span>🪘</span> Mezwed & Rboukh</button>
+        <button class="genre-pill" data-genre="classics-tounsi"><span>📻</span> Tarab Tounsi</button>
+        <button class="genre-pill" data-genre="random-tounsi"><span>🎲</span> 100% Tounsi Mix</button>
       </div>
     </nav>
 
@@ -184,7 +182,7 @@
             type="text"
             id="search-input"
             class="console-input"
-            placeholder="Search song title or artist..."
+            placeholder="Search title or rapper (ex: Ya Lili, Samara, Balti, Kaso...)"
             aria-label="Search song title or artist"
             spellcheck="false"
           />

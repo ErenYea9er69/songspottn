@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security Middleware
+// Security Middleware with CSP for Deezer CDNs
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -30,27 +30,23 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
-
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Rate Limiter on API calls
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 120, // 120 requests per minute
+  windowMs: 60 * 1000,
+  max: 150,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please slow down.' }
 });
 app.use('/api/', apiLimiter);
 
-// In-Memory Caches (Storing ONLY metadata: IDs, titles, artists, cover URLs. No audio files stored.)
-const metadataCache = new Map(); // key -> { timestamp, data }
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+// In-Memory Caches (Storing ONLY metadata: IDs, titles, artists, cover URLs - NO audio files stored)
+const metadataCache = new Map();
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function getCached(key) {
   const cached = metadataCache.get(key);
@@ -63,7 +59,6 @@ function getCached(key) {
 }
 
 function setCached(key, data) {
-  // Prune cache if overly large
   if (metadataCache.size > 2000) {
     const oldestKey = metadataCache.keys().next().value;
     metadataCache.delete(oldestKey);
@@ -71,23 +66,56 @@ function setCached(key, data) {
   metadataCache.set(key, { timestamp: Date.now(), data });
 }
 
-// Predefined Curated Genres & Charts
-const GENRE_DEFINITIONS = [
-  { id: 'chart-0', name: 'Global Top Hits', type: 'chart', target: '0' },
-  { id: 'genre-132', name: 'Pop Anthems', type: 'genre', target: '132' },
-  { id: 'genre-152', name: 'Rock Legends', type: 'genre', target: '152' },
-  { id: 'genre-116', name: 'Hip-Hop & Rap', type: 'genre', target: '116' },
-  { id: 'genre-113', name: 'Dance & Electronic', type: 'genre', target: '113' },
-  { id: 'genre-165', name: 'R&B & Soul', type: 'genre', target: '165' },
-  { id: 'search-80s', name: '80s & 90s Classics', type: 'search', target: '80s 90s greatest hits' },
-  { id: 'search-indie', name: 'Indie & Alternative', type: 'search', target: 'indie alternative greatest hits' }
+// ================= TUNISIAN MUSIC CATALOG DEFINITIONS =================
+const TUNISIAN_GENRES = [
+  {
+    id: 'rap-all',
+    name: 'Rap Tunisien (Top Hits)',
+    icon: '🎤',
+    playlists: ['10241820882', '13708724361', '14321559721'],
+    artists: ['Balti', 'Sanfara', 'Samara', 'JenJoon', 'Nordo', 'Kaso', 'A.L.A', 'Kafon', 'Klay BBj']
+  },
+  {
+    id: 'rap-drill',
+    name: 'Samara, Sanfara & Kaso',
+    icon: '⚡',
+    playlists: ['13708724361', '10241820882'],
+    artists: ['Samara', 'Sanfara', 'Kaso', 'JenJoon']
+  },
+  {
+    id: 'rap-legends',
+    name: 'Balti, Kafon & Klay',
+    icon: '👑',
+    playlists: ['10241820882'],
+    artists: ['Balti', 'Kafon', 'Klay BBj', 'A.L.A']
+  },
+  {
+    id: 'mezwed-tounsi',
+    name: 'Mezwed & Rboukh',
+    icon: '🪘',
+    playlists: ['10478191822', '12900886523'],
+    artists: ['Fatma Bousseha', 'Nour Chiba', 'Zaza Show', 'Rubokh Tunisi', 'DJ Nabil']
+  },
+  {
+    id: 'classics-tounsi',
+    name: 'Classiques & Tarab',
+    icon: '📻',
+    playlists: ['12900886523'],
+    artists: ['Lotfi Bouchnak', 'Saber Rebai', 'Hedi Jouini', 'Ali Riahi', 'Fatma Bou Saha']
+  },
+  {
+    id: 'random-tounsi',
+    name: '100% Tounsi Mix',
+    icon: '🎲',
+    playlists: ['10241820882', '13708724361', '12900886523', '10478191822'],
+    artists: ['Balti', 'Samara', 'Sanfara', 'JenJoon', 'Nordo', 'Kaso', 'A.L.A', 'Kafon', 'Saber Rebai', 'Lotfi Bouchnak', 'Nour Chiba']
+  }
 ];
 
 // Active Game Sessions
 const gameSessions = new Map();
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-// Clean up stale sessions periodically
 setInterval(() => {
   const now = Date.now();
   for (const [id, session] of gameSessions.entries()) {
@@ -100,73 +128,102 @@ setInterval(() => {
 const CLIP_LENGTHS = [0.1, 0.5, 2.0, 8.0, 15.0];
 const ATTEMPT_SCORES = [1000, 800, 600, 400, 200];
 
-// Fetch tracks from Deezer based on category
-async function fetchTracksForCategory(genreObj) {
-  const cacheKey = `tracks:${genreObj.id}`;
+// Fetch and aggregate genuine Tunisian tracks
+async function fetchTunisianTracks(categoryObj) {
+  const cacheKey = `tn_tracks:${categoryObj.id}`;
   const cached = getCached(cacheKey);
   if (cached && cached.length >= 10) return cached;
 
-  let url;
-  if (genreObj.type === 'chart') {
-    url = `https://api.deezer.com/chart/${genreObj.target}/tracks?limit=60`;
-  } else if (genreObj.type === 'genre') {
-    url = `https://api.deezer.com/chart/${genreObj.target}/tracks?limit=60`;
-  } else {
-    url = `https://api.deezer.com/search?q=${encodeURIComponent(genreObj.target)}&limit=60`;
-  }
+  const trackMap = new Map();
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Deezer API returned ${res.status}`);
-    const json = await res.json();
-    const list = json.data || [];
-
-    // Filter valid tracks that contain playable previews and album art
-    const tracks = list
-      .filter(t => t.preview && t.title && t.artist && t.artist.name)
-      .map(t => ({
-        id: t.id,
-        title: t.title_short || t.title,
-        fullTitle: t.title,
-        artist: t.artist.name,
-        cover: t.album?.cover_medium || t.album?.cover_big || t.artist?.picture_medium || '',
-        preview: t.preview
-      }));
-
-    if (tracks.length > 0) {
-      setCached(cacheKey, tracks);
-      return tracks;
+  // 1. Fetch from curated Tunisian playlists
+  for (const plId of categoryObj.playlists) {
+    try {
+      const res = await fetch(`https://api.deezer.com/playlist/${plId}/tracks?limit=40`);
+      if (res.ok) {
+        const json = await res.json();
+        for (const t of (json.data || [])) {
+          if (t.id && t.preview && t.title && t.artist && t.artist.name) {
+            trackMap.set(t.id, {
+              id: t.id,
+              title: t.title_short || t.title,
+              fullTitle: t.title,
+              artist: t.artist.name,
+              cover: t.album?.cover_medium || t.album?.cover_big || t.artist?.picture_medium || '',
+              preview: t.preview
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`Error fetching playlist ${plId}:`, e.message);
     }
-  } catch (err) {
-    console.error(`Error fetching category ${genreObj.id}:`, err);
   }
 
-  // Fallback to general chart
-  if (genreObj.id !== 'chart-0') {
-    return fetchTracksForCategory(GENRE_DEFINITIONS[0]);
+  // 2. Fetch from specific top Tunisian artists
+  for (const artist of categoryObj.artists) {
+    try {
+      const res = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(artist)}&limit=15`);
+      if (res.ok) {
+        const json = await res.json();
+        for (const t of (json.data || [])) {
+          // Check if track artist or title matches artist name
+          const artistMatch = t.artist?.name?.toLowerCase().includes(artist.toLowerCase());
+          const titleMatch = t.title?.toLowerCase().includes(artist.toLowerCase());
+          if ((artistMatch || titleMatch) && t.preview && t.title && t.artist) {
+            trackMap.set(t.id, {
+              id: t.id,
+              title: t.title_short || t.title,
+              fullTitle: t.title,
+              artist: t.artist.name,
+              cover: t.album?.cover_medium || t.album?.cover_big || t.artist?.picture_medium || '',
+              preview: t.preview
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`Error fetching artist ${artist}:`, e.message);
+    }
   }
-  return [];
+
+  const tracks = Array.from(trackMap.values());
+  if (tracks.length >= 5) {
+    setCached(cacheKey, tracks);
+    return tracks;
+  }
+
+  // Fallback to general rap-all if too few tracks
+  if (categoryObj.id !== 'rap-all') {
+    return fetchTunisianTracks(TUNISIAN_GENRES[0]);
+  }
+
+  return tracks;
 }
 
-// Title normalization for fuzzy matching
+// Title normalization for Arabizi and French/English titles
 function normalizeTrackTitle(str) {
   if (!str) return '';
   return str
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
-    .replace(/\(.*?\)/g, '') // remove parenthesized info like (Remastered) or (feat. X)
-    .replace(/\[.*?\]/g, '') // remove bracketed info
-    .replace(/-.*$/g, '') // remove dash subtitles like - 2011 Remaster
-    .replace(/[^a-z0-9]/g, '') // keep only alphanumeric
+    .replace(/\(.*?\)/g, '') // remove parenthesized info
+    .replace(/\[.*?\]/g, '')
+    .replace(/-.*$/g, '')
+    .replace(/[^a-z0-9]/g, '') // keep alphanumeric (handles Arabizi like 7oumani, 3arbouch)
     .trim();
 }
 
 // ================= API ROUTES =================
 
-// GET /api/genres
+// GET /api/genres (Tunisian Music Categories)
 app.get('/api/genres', (req, res) => {
   res.json({
-    genres: GENRE_DEFINITIONS.map(g => ({ id: g.id, name: g.name }))
+    genres: TUNISIAN_GENRES.map(g => ({
+      id: g.id,
+      name: g.name,
+      icon: g.icon
+    }))
   });
 });
 
@@ -184,7 +241,7 @@ app.get('/api/search', async (req, res) => {
   }
 
   try {
-    const deezerUrl = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=10`;
+    const deezerUrl = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=12`;
     const response = await fetch(deezerUrl);
     if (!response.ok) throw new Error(`Deezer API error: ${response.status}`);
     const data = await response.json();
@@ -206,17 +263,17 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
-// POST /api/game/new (Start a new 5-round game)
+// POST /api/game/new (Start a new 5-round Tunisian game)
 app.post('/api/game/new', async (req, res) => {
   const { genreId } = req.body;
-  const selectedGenre = GENRE_DEFINITIONS.find(g => g.id === genreId) || GENRE_DEFINITIONS[0];
+  const selectedGenre = TUNISIAN_GENRES.find(g => g.id === genreId) || TUNISIAN_GENRES[0];
 
-  const pool = await fetchTracksForCategory(selectedGenre);
+  const pool = await fetchTunisianTracks(selectedGenre);
   if (!pool || pool.length < 5) {
-    return res.status(500).json({ error: 'Could not fetch enough tracks for this category.' });
+    return res.status(500).json({ error: 'Could not fetch enough Tunisian tracks.' });
   }
 
-  // Pick 5 random unique tracks
+  // Shuffle and pick 5 unique tracks
   const shuffled = [...pool].sort(() => 0.5 - Math.random());
   const selectedTracks = shuffled.slice(0, 5);
 
@@ -251,7 +308,7 @@ app.post('/api/game/new', async (req, res) => {
   });
 });
 
-// POST /api/game/guess (Submit a guess for the active round)
+// POST /api/game/guess (Submit a guess for active round)
 app.post('/api/game/guess', (req, res) => {
   const { gameId, trackId, guessTitle } = req.body;
   if (!gameId || (!trackId && !guessTitle)) {
@@ -260,13 +317,12 @@ app.post('/api/game/guess', (req, res) => {
 
   const session = gameSessions.get(gameId);
   if (!session || session.completed) {
-    return res.status(404).json({ error: 'Game session not found or already completed.' });
+    return res.status(404).json({ error: 'Game session not found.' });
   }
 
   const currentTrack = session.rounds[session.currentRoundIndex];
   const attemptIndex = session.currentAttemptIndex;
 
-  // Check if guess is correct
   let isCorrect = false;
   if (trackId && String(trackId) === String(currentTrack.id)) {
     isCorrect = true;
@@ -309,12 +365,12 @@ app.post('/api/game/guess', (req, res) => {
     });
   }
 
-  // Guess was incorrect
+  // Wrong guess
   const nextAttempt = attemptIndex + 1;
   session.currentAttemptIndex = nextAttempt;
 
   if (nextAttempt >= CLIP_LENGTHS.length) {
-    // Out of attempts: round lost
+    // All 5 attempts exhausted
     session.roundScores[session.currentRoundIndex] = 0;
     session.roundAttemptsUsed[session.currentRoundIndex] = 5;
     session.roundWon[session.currentRoundIndex] = false;
@@ -337,7 +393,6 @@ app.post('/api/game/guess', (req, res) => {
     });
   }
 
-  // More attempts remaining
   res.json({
     correct: false,
     roundOver: false,
@@ -346,12 +401,10 @@ app.post('/api/game/guess', (req, res) => {
   });
 });
 
-// POST /api/game/skip (Skip current clip to unlock longer duration)
+// POST /api/game/skip
 app.post('/api/game/skip', (req, res) => {
   const { gameId } = req.body;
-  if (!gameId) {
-    return res.status(400).json({ error: 'Missing gameId' });
-  }
+  if (!gameId) return res.status(400).json({ error: 'Missing gameId' });
 
   const session = gameSessions.get(gameId);
   if (!session || session.completed) {
@@ -362,7 +415,7 @@ app.post('/api/game/skip', (req, res) => {
   const attemptIndex = session.currentAttemptIndex;
 
   session.guessesThisRound.push({
-    text: 'Skipped',
+    text: 'Skipped snippet',
     correct: false,
     attempt: attemptIndex + 1
   });
@@ -371,7 +424,6 @@ app.post('/api/game/skip', (req, res) => {
   session.currentAttemptIndex = nextAttempt;
 
   if (nextAttempt >= CLIP_LENGTHS.length) {
-    // Forfeited / All skips used
     session.roundScores[session.currentRoundIndex] = 0;
     session.roundAttemptsUsed[session.currentRoundIndex] = 5;
     session.roundWon[session.currentRoundIndex] = false;
@@ -400,13 +452,11 @@ app.post('/api/game/skip', (req, res) => {
   });
 });
 
-// POST /api/game/next-round (Advance to subsequent round or complete game)
+// POST /api/game/next-round
 app.post('/api/game/next-round', (req, res) => {
   const { gameId } = req.body;
   const session = gameSessions.get(gameId);
-  if (!session) {
-    return res.status(404).json({ error: 'Game session not found.' });
-  }
+  if (!session) return res.status(404).json({ error: 'Game session not found.' });
 
   const nextRound = session.currentRoundIndex + 1;
   if (nextRound >= 5) {
@@ -449,5 +499,5 @@ app.post('/api/game/next-round', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`SongSpot server running at http://localhost:${PORT}`);
+  console.log(`SongSpot (Tunisian Edition) running at http://localhost:${PORT}`);
 });
